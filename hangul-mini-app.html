@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fafafa">
+<title>한글 조립 놀이</title>
+<style>
+:root { --bg:#fafafa; --card:#fff; --text:#161616; --muted:#707070; --line:#e5e5e5; }
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { margin:0; min-height:100%; background:var(--bg); color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif; }
+body { min-height:100dvh; display:flex; justify-content:center; }
+.app { width:min(100%,720px); min-height:100dvh; padding:max(18px,env(safe-area-inset-top)) 18px max(24px,env(safe-area-inset-bottom)); display:flex; flex-direction:column; }
+header { display:flex; justify-content:space-between; align-items:center; gap:12px; }
+h1 { font-size:20px; margin:0; }
+select,button { font:inherit; }
+select { border:1px solid var(--line); border-radius:12px; background:white; padding:9px 12px; }
+.progress { margin:18px 0 8px; height:7px; background:#e9e9e9; border-radius:999px; overflow:hidden; }
+.progress > div { height:100%; background:#222; width:0; transition:width .25s ease; }
+.meta { display:flex; justify-content:space-between; color:var(--muted); font-size:13px; }
+.stage { flex:1; display:flex; align-items:center; justify-content:center; padding:22px 0; }
+.card { width:100%; min-height:46dvh; background:var(--card); border:1px solid var(--line); border-radius:28px;
+  display:flex; flex-direction:column; align-items:center; justify-content:center; padding:28px 18px; box-shadow:0 8px 30px rgba(0,0,0,.04); }
+.prompt { font-size:clamp(58px,17vw,110px); font-weight:700; letter-spacing:.02em; line-height:1.2; text-align:center; }
+.answer { display:none; font-size:clamp(90px,27vw,170px); font-weight:800; line-height:1; }
+.hint { margin-top:22px; color:var(--muted); font-size:16px; text-align:center; }
+.controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+button { border:0; border-radius:18px; padding:17px 14px; font-weight:700; font-size:17px; }
+.primary { background:#161616; color:white; }
+.secondary { background:#e9e9e9; color:#161616; }
+.smallrow { display:flex; justify-content:center; gap:8px; margin-top:10px; }
+.smallrow button { padding:10px 14px; font-size:14px; background:transparent; border:1px solid var(--line); }
+.done { display:none; text-align:center; }
+.done h2 { font-size:34px; margin:0 0 12px; }
+.done p { color:var(--muted); line-height:1.6; }
+@media (max-width:420px) { .app{padding-left:14px;padding-right:14px}.card{min-height:48dvh}.controls{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+<main class="app">
+<header>
+  <h1>한글 조립 놀이</h1>
+  <select id="week" aria-label="주차 선택">
+    <option value="1">1주차</option>
+    <option value="2">2주차</option>
+    <option value="3">3주차</option>
+    <option value="4">4주차</option>
+  </select>
+</header>
+
+<div class="progress"><div id="bar"></div></div>
+<div class="meta"><span id="label">오늘 1 / 10</span><span id="mode">글자 조립</span></div>
+
+<section class="stage">
+  <div class="card" id="card">
+    <div id="lesson">
+      <div class="prompt" id="prompt">ㄱ + ㅏ</div>
+      <div class="answer" id="answer">가</div>
+      <div class="hint" id="hint">먼저 소리를 합쳐 보세요</div>
+    </div>
+    <div class="done" id="done">
+      <h2>오늘 끝!</h2>
+      <p>10개를 모두 해봤어요.<br>몇 개 맞혔는지보다 소리를 합쳐본 것이 중요해요.</p>
+    </div>
+  </div>
+</section>
+
+<div class="controls">
+  <button class="secondary" id="show">합치면?</button>
+  <button class="primary" id="next">다음 글자</button>
+</div>
+<div class="smallrow">
+  <button id="restart">처음부터</button>
+  <button id="shuffle">새 문제</button>
+</div>
+</main>
+
+<script>
+const sets = {
+  1: { c:["ㄱ","ㄴ","ㄷ"], v:["ㅏ","ㅗ","ㅜ"] },
+  2: { c:["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ"], v:["ㅏ","ㅓ","ㅗ","ㅜ","ㅡ","ㅣ"] },
+  3: { c:["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅎ"], v:["ㅏ","ㅓ","ㅗ","ㅜ","ㅡ","ㅣ"] },
+  4: { c:["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅎ"], v:["ㅏ","ㅓ","ㅗ","ㅜ","ㅡ","ㅣ"] }
+};
+const choseong = ["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+const jungseong = ["ㅏ","ㅐ","ㅑ","ㅒ","ㅓ","ㅔ","ㅕ","ㅖ","ㅗ","ㅘ","ㅙ","ㅚ","ㅛ","ㅜ","ㅝ","ㅞ","ㅟ","ㅠ","ㅡ","ㅢ","ㅣ"];
+function syllable(c,v){
+  const ci=choseong.indexOf(c), vi=jungseong.indexOf(v);
+  return (ci<0||vi<0) ? "" : String.fromCharCode(0xAC00 + (ci*21+vi)*28);
+}
+let questions=[], idx=0, revealed=false;
+const $ = id => document.getElementById(id);
+
+function makeQuestions(){
+  const w=$("week").value, s=sets[w], pool=[];
+  s.c.forEach(c=>s.v.forEach(v=>pool.push({c,v,a:syllable(c,v)})));
+  // Fisher-Yates
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  questions=pool.slice(0,10);
+  idx=0; revealed=false; render();
+}
+function render(){
+  const done=idx>=questions.length;
+  $("lesson").style.display=done?"none":"block";
+  $("done").style.display=done?"block":"none";
+  $("show").disabled=done; $("next").disabled=done;
+  $("bar").style.width=(done?100:(idx/questions.length*100))+"%";
+  $("label").textContent=done?"오늘 10 / 10":`오늘 ${idx+1} / ${questions.length}`;
+  if(done) return;
+  const q=questions[idx];
+  $("prompt").textContent=`${q.c} + ${q.v}`;
+  $("answer").textContent=q.a;
+  $("prompt").style.display=revealed?"none":"block";
+  $("answer").style.display=revealed?"block":"none";
+  $("hint").textContent=revealed?`${q.c} + ${q.v} = ${q.a}`:"먼저 소리를 합쳐 보세요";
+  $("show").textContent=revealed?"다시 보기":"합치면?";
+}
+function reveal(){ if(idx>=questions.length)return; revealed=!revealed; render(); }
+function next(){ if(idx>=questions.length)return; idx++; revealed=false; render(); }
+
+$("show").addEventListener("click", reveal);
+$("next").addEventListener("click", next);
+$("card").addEventListener("click", ()=> revealed ? next() : reveal());
+$("restart").addEventListener("click", ()=>{idx=0;revealed=false;render();});
+$("shuffle").addEventListener("click", makeQuestions);
+$("week").addEventListener("change", makeQuestions);
+makeQuestions();
+</script>
+</body>
+</html>

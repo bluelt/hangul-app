@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#fafafa">
+<title>한글 조립 놀이</title>
+<style>
+:root{--bg:#fafafa;--card:#fff;--text:#111;--muted:#777;--line:#e7e7e7}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;width:100%;min-height:100%;background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif}
+body{min-height:100dvh;display:flex;justify-content:center;overflow:hidden}
+.app{width:100%;max-width:440px;height:100dvh;padding:max(12px,env(safe-area-inset-top)) 12px max(12px,env(safe-area-inset-bottom));display:flex;flex-direction:column}
+header{height:42px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+h1{font-size:17px;margin:0}
+select{font:inherit;border:1px solid var(--line);border-radius:10px;background:#fff;padding:7px 10px}
+.progress{margin:7px 0 5px;height:5px;background:#e8e8e8;border-radius:999px;overflow:hidden}
+.progress>div{height:100%;background:#222;width:0;transition:width .2s}
+.meta{height:22px;display:flex;justify-content:space-between;color:var(--muted);font-size:12px}
+.stage{flex:1;min-height:0;padding:7px 0;display:flex}
+.card{position:relative;width:100%;height:100%;min-height:0;background:#fff;border:1px solid var(--line);border-radius:26px;overflow:hidden;box-shadow:0 6px 24px rgba(0,0,0,.035);user-select:none}
+.lesson{position:absolute;inset:0}
+
+/* One learning target per screen: consonant -> vowel -> composed syllable. */
+.jamo{position:absolute;inset:6%;display:none;align-items:center;justify-content:center;
+  font-weight:850;line-height:1;letter-spacing:0;text-align:center;transform:none}
+.consonant{font-size:min(102vw,448px);translate:-1.5% 0}
+.vowel{font-size:min(102vw,448px);translate:-1.5% 0}
+.plus{display:none}
+.caption{position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:13px;color:#999}
+.answer{display:none;position:absolute;inset:6%;align-items:center;justify-content:center;
+  font-size:min(102vw,448px);font-weight:850;line-height:1;letter-spacing:0;text-align:center;transform:none}
+.answer-note{display:none;position:absolute;left:0;right:0;bottom:8px;text-align:center;color:#888;font-size:13px}
+
+/* phase 0 */
+.lesson:not(.focus-vowel):not(.revealed) .consonant{display:flex}
+/* phase 1 */
+.lesson.focus-vowel:not(.revealed) .vowel{display:flex}
+/* phase 2 */
+.lesson.revealed .answer{display:flex}
+.lesson.revealed .answer-note{display:block}
+.lesson.revealed .caption{display:none}
+
+.done{display:none;position:absolute;inset:0;align-items:center;justify-content:center;flex-direction:column;text-align:center;padding:25px}
+.done h2{font-size:36px;margin:0 0 10px}.done p{color:#777;line-height:1.55}
+.controls{height:57px;display:grid;grid-template-columns:1fr 1fr;gap:8px}.controls.three{grid-template-columns:.75fr 1fr 1fr}
+button{font:inherit;border:0;border-radius:16px;font-size:16px;font-weight:750}
+.secondary{background:#e9e9e9;color:#111}.primary{background:#151515;color:#fff}
+.tools{height:38px;display:flex;justify-content:center;align-items:end;gap:8px}
+.tools button{background:transparent;border:1px solid var(--line);padding:7px 12px;font-size:12px;font-weight:600}
+</style>
+</head>
+<body>
+<main class="app">
+<header><h1>한글 조립 놀이</h1>
+<select id="week" aria-label="주차 선택"><option value="1">1주차</option><option value="2">2주차</option><option value="3">3주차</option><option value="4">4주차</option></select></header>
+<div class="progress"><div id="bar"></div></div>
+<div class="meta"><span id="label">오늘 1 / 10</span><span id="mode">자음부터 보기</span></div>
+<section class="stage">
+<div class="card" id="card">
+  <div class="lesson" id="lesson">
+    <div class="jamo consonant" id="c">ㄱ</div>
+    <div class="plus">+</div>
+    <div class="jamo vowel" id="v">ㅏ</div>
+    <div class="caption" id="caption">자음 소리를 내보세요</div>
+    <div class="answer" id="answer">가</div>
+    <div class="answer-note" id="answerNote">ㄱ + ㅏ</div>
+  </div>
+  <div class="done" id="done"><h2>오늘 끝!</h2><p>10개를 모두 해봤어요.<br>자음과 모음을 하나씩 보고 합쳐봤어요.</p></div>
+</div>
+</section>
+<div class="controls three"><button class="secondary" id="back">이전</button><button class="secondary" id="step">다음 보기</button><button class="primary" id="next">다음 글자</button></div>
+<div class="tools"><button id="restart">처음부터</button><button id="shuffle">새 문제</button></div>
+</main>
+<script>
+const sets={
+1:{c:["ㄱ","ㄴ","ㄷ"],v:["ㅏ","ㅗ","ㅜ"]},
+2:{c:["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ"],v:["ㅏ","ㅓ","ㅗ","ㅜ","ㅡ","ㅣ"]},
+3:{c:["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅎ"],v:["ㅏ","ㅓ","ㅗ","ㅜ","ㅡ","ㅣ"]},
+4:{c:["ㄱ","ㄴ","ㄷ","ㄹ","ㅁ","ㅂ","ㅅ","ㅇ","ㅈ","ㅎ"],v:["ㅏ","ㅓ","ㅗ","ㅜ","ㅡ","ㅣ"]}
+};
+const C=["ㄱ","ㄲ","ㄴ","ㄷ","ㄸ","ㄹ","ㅁ","ㅂ","ㅃ","ㅅ","ㅆ","ㅇ","ㅈ","ㅉ","ㅊ","ㅋ","ㅌ","ㅍ","ㅎ"];
+const V=["ㅏ","ㅐ","ㅑ","ㅒ","ㅓ","ㅔ","ㅕ","ㅖ","ㅗ","ㅘ","ㅙ","ㅚ","ㅛ","ㅜ","ㅝ","ㅞ","ㅟ","ㅠ","ㅡ","ㅢ","ㅣ"];
+const $=id=>document.getElementById(id);
+function syllable(c,v){let ci=C.indexOf(c),vi=V.indexOf(v);return String.fromCharCode(0xAC00+(ci*21+vi)*28)}
+let qs=[],idx=0,phase=0;
+function makeQuestions(){
+ const s=sets[$("week").value],pool=[];
+ s.c.forEach(c=>s.v.forEach(v=>pool.push({c,v,a:syllable(c,v)})));
+ for(let i=pool.length-1;i>0;i--){let j=Math.floor(Math.random()*(i+1));[pool[i],pool[j]]=[pool[j],pool[i]]}
+ qs=pool.slice(0,10);idx=0;phase=0;render();
+}
+function render(){
+ const finished=idx>=qs.length;
+ $("lesson").style.display=finished?"none":"block";
+ $("done").style.display=finished?"flex":"none";
+ $("step").disabled=finished;$("next").disabled=finished;$("back").disabled=(idx===0&&phase===0);
+ $("bar").style.width=(finished?100:idx/qs.length*100)+"%";
+ $("label").textContent=finished?"오늘 10 / 10":`오늘 ${idx+1} / ${qs.length}`;
+ if(finished)return;
+ const q=qs[idx]; $("c").textContent=q.c;$("v").textContent=q.v;$("answer").textContent=q.a;$("answerNote").textContent=`${q.c} + ${q.v}`;
+ $("lesson").classList.toggle("focus-vowel",phase===1);
+ $("lesson").classList.toggle("revealed",phase===2);
+ if(phase===0){$("mode").textContent="자음부터 보기";$("caption").textContent="자음 소리를 내보세요";$("step").textContent="모음 보기"}
+ if(phase===1){$("mode").textContent="이번엔 모음";$("caption").textContent="모음 소리를 내보세요";$("step").textContent="합치기"}
+ if(phase===2){$("mode").textContent="합친 글자";$("step").textContent="다시 보기"}
+}
+function advancePhase(){if(idx>=qs.length)return;if(phase<2)phase++;else{idx++;phase=0}render()}
+function back(){if(idx>=qs.length){idx=Math.max(0,qs.length-1);phase=2;render();return}
+ if(phase>0){phase--}else if(idx>0){idx--;phase=2}render()}
+function next(){if(idx>=qs.length)return;idx++;phase=0;render()}
+$("card").addEventListener("click",()=>phase===2?next():advancePhase());
+$("back").addEventListener("click",back);$("step").addEventListener("click",advancePhase);$("next").addEventListener("click",next);
+$("restart").addEventListener("click",()=>{idx=0;phase=0;render()});$("shuffle").addEventListener("click",makeQuestions);
+$("week").addEventListener("change",makeQuestions);makeQuestions();
+</script>
+</body></html>
